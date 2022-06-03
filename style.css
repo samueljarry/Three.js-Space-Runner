@@ -1,0 +1,35 @@
+*
+{
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body
+{
+    overflow: hidden;
+}
+
+.webgl
+{
+    position: fixed;
+    top: 0;
+    left: 0;
+    outline: none;
+}
+
+#score{
+    position:absolute;
+    top: calc(0% + 10px);
+    right: calc(0% + 10px);
+    font-size: 30px;
+    color:white;
+    min-width: 150px;
+    min-height: 100px;
+    width: 20%;
+    height: 5%;
+    z-index: 1;
+    text-align: end;
+    font-family: 'Press Start 2P'
+
+}
