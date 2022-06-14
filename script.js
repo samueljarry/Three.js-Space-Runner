@@ -1,58 +1,58 @@
 import "./style.css";
+import "./test.js"
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import * as dat from "lil-gui";
-import { PointLightHelper } from "three";
 import gsap from "gsap";
 
-// Constantes globales
+if(document.readyState === 'complete')
+{
+  console.log('pret')
+}
 
-const ufoSpawnX = 5;
-const ufoDestroyX = -20;
-const ufoSpawnInterval = 10;
+// Variables / Constantes globales
 
-// Variables
-
-let gameover = null
+let gameover = false
 let mixer = null;
 let ufo = null;
 let ufoHitbox = null;
 let cosmonautMixer = null;
 let cosmonautMesh = null;
-let cosmonautAction = null;
+let cosmonautAction = null
+let action = null
 let cosmonaut1 = null
-let ufoSpawnDelai = 0
 
-// Fonctions
 
-function randomFloat(min, max) {
-  return Math.random() * (max - min) + min;
-}
+const replay = document.getElementById('replay')
+const restart = document.getElementById('restart')
+const gui = new dat.GUI();
+
+restart.addEventListener('click', () => {
+  location.reload()
+})
 
 /**
  * Base
  */
 
 // Debug
-const gui = new dat.GUI();
+
 gui.hide();
 
 // Textures
-const cubeTextureLoader = new THREE.CubeTextureLoader();
 
-const environmentMapTexture = cubeTextureLoader.load([
-  "/textures/cubemap/px.png",
-  "/textures/cubemap/nx.png",
-  "/textures/cubemap/py.png",
-  "/textures/cubemap/ny.png",
-  "/textures/cubemap/pz.png",
-  "/textures/cubemap/nz.png",
-]);
+const textureLoader = new THREE.TextureLoader()
 
-environmentMapTexture.minFilter = THREE.NearestFilter;
-environmentMapTexture.magFilter = THREE.NearestFilter;
+const background = textureLoader.load('/textures/cubemap/nz.jpg');
+const moonTexture = textureLoader.load('/textures/moonTexture.jpg')
+
+background.minFilter = THREE.NearestFilter;
+background.magFilter = THREE.NearestFilter;
+
+moonTexture.minFilter = THREE.NearestFilter;
+moonTexture.magFilter = THREE.NearestFilter;
 
 // Loaders
 const dracoLoader = new DRACOLoader();
@@ -66,7 +66,29 @@ const canvas = document.querySelector("canvas.webgl");
 
 // Scene
 const scene = new THREE.Scene();
-scene.background = environmentMapTexture;
+
+/* 
+  * Background
+ */
+
+const bg = new THREE.Mesh(
+  new THREE.PlaneGeometry,
+  new THREE.MeshStandardMaterial({map: background})
+)
+
+bg.position.y = 0,904
+bg.position.z = -10
+bg.scale.set(30, 30, 30)
+
+const bgDebug = gui.addFolder('Background')
+bgDebug.add(bg.position, 'x').min(-10).max(10).step(0.001)
+bgDebug.add(bg.position, 'y').min(-10).max(10).step(0.001)
+bgDebug.add(bg.position, 'z').min(-10).max(10).step(0.001)
+bgDebug.add(bg.scale, 'x').min(-10).max(50).step(0.001)
+bgDebug.add(bg.scale, 'y').min(-10).max(50).step(0.001)
+bgDebug.add(bg.scale, 'z').min(-10).max(50).step(0.001)
+
+scene.add(bg)
 
 /**
  * Floor
@@ -81,35 +103,64 @@ const floor = new THREE.Mesh(
 );
 floor.receiveShadow = true;
 floor.rotation.x = -Math.PI * 0.5;
-scene.add(floor);
+/* scene.add(floor); */
+
+const moon = new THREE.Mesh(
+  new THREE.SphereGeometry(0.8, 32, 32),
+  new THREE.MeshStandardMaterial({
+    map: moonTexture,
+    roughness: 9,
+    metalness: 0.5
+  })
+)
+
+moon.position.set(-2, -0.77, 0)
+
+const moonDebug = gui.addFolder('Moon')
+moonDebug.add(moon.position, 'x').min(-5).max(5).step(0.001)
+moonDebug.add(moon.position, 'y').min(-5).max(5).step(0.001)
+moonDebug.add(moon.position, 'z').min(-5).max(5).step(0.001)
+
+scene.add(moon)
 
 /* 
-  Ufos 3D models
- */
-const ufoGroup = new THREE.Group()
-scene.add(ufoGroup)
+  Load 3D model
+*/
 
-gltfLoader.load("/models/Ufo/scene.gltf", (gltf) => {
-  ufo = gltf.scene;
-  mixer = new THREE.AnimationMixer(ufo);
-  const action = mixer.clipAction(gltf.animations[0]);
+var roadStripArray = []
+function objectRoadStrip() {
+  if(!gameover){
+   gltfLoader.load("/models/Ufo/scene.gltf", (gltf) => {
+       ufo = gltf.scene;
+       mixer = new THREE.AnimationMixer(ufo);
+       action = mixer.clipAction(gltf.animations[0]);
+       action.play()
+         ufo.position.set(5, 0.5, 0)
+         ufo.scale.set(0.15,0.15,0.15)
+         ufo.receiveShadow = true;
+         scene.add(ufo);
+         roadStripArray.push(ufo);
+       }
+     );
+     ufoHitbox = new THREE.Mesh(
+       new THREE.BoxGeometry(1, 1, 1),
+       new THREE.MeshBasicMaterial({ color: 0x0000ff, wireframe: true })
+     );
+     ufoHitbox.visible = false
+     
+     ufoHitbox.scale.x = 0.72;
+     ufoHitbox.scale.y = 0.2;
+     ufoHitbox.scale.z = 0.57;
+     scene.add(ufoHitbox)
+}
+}
 
-  ufo.position.x = 5
-
-  scene.add(ufo)
-  action.play();
-
-  ufo.scale.set(0.15, 0.15, 0.15);
-  ufo.position.y = 0.5;
-
-
-});
 
 /* 
     Cosmonaut 3D model
  */
 
-gltfLoader.load("/models/astronaut/cosmonaut4.gltf", (cosmonaut) => {
+gltfLoader.load("/models/astronaut/cosmonaut1.gltf", (cosmonaut) => {
   cosmonaut1 = cosmonaut
   cosmonautMesh = cosmonaut.scene;
   cosmonautMixer = new THREE.AnimationMixer(cosmonautMesh);
@@ -118,7 +169,6 @@ gltfLoader.load("/models/astronaut/cosmonaut4.gltf", (cosmonaut) => {
   // Position
   cosmonautMesh.position.x = -2;
   cosmonautMesh.rotation.y = 1.5;
-  console.log(cosmonautMesh.position.y)
 
   // Shadows
   cosmonaut.receiveShadow = true;
@@ -147,19 +197,19 @@ gltfLoader.load("/models/astronaut/cosmonaut4.gltf", (cosmonaut) => {
       
     if (event.code === "ArrowUp" || event.code === "Space") {
       
-      if(gameover == null){  
+      if(!gameover){  
       //  Montée Astronaute
       gsap.to(cosmonautMesh.position, {
-        duration: 0.6,
+        duration: 0.2,
         ease: "Power2.easeOut",
         y: 1,
-      });
+      })
 
       // Descente Astro
       gsap.to(cosmonautMesh.position, {
-        duration: 0.6,
-        ease: "Power1.easeInOut",
-        delay: 0.4,
+        duration: 0.3,
+        ease: "Power0.easeIn",
+        delay: 0.21 ,
         y: 0,
       });
 
@@ -192,7 +242,7 @@ const cosHitbox = new THREE.Mesh(
   new THREE.BoxGeometry(1, 1, 1),
   new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
 );
-cosHitbox.visible = false;
+cosHitbox.visible = false
 
 cosHitbox.position.set(-1.884, 0.5, 0)
 cosHitbox.scale.set(0.206, 0.94, 0.45)
@@ -209,47 +259,30 @@ const hitbox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
 hitbox.setFromObject(cosHitbox);
 
 // Saut
-if(gameover == null)
+if(!gameover)
 {
-document.addEventListener("keydown", (event) => {
-  if (event.code === "ArrowUp" || event.code === "Space") {
-    // Montée Hitbox
-    gsap.to(cosHitbox.position, {
-      duration: 0.4,
-      ease: "Power2.easeOut",
-      y: 1.5,
-    });
+  document.addEventListener("keydown", (event) => {
+    if(cosHitbox.position.y == 0.5)
+    {
+      if (event.code === "ArrowUp" || event.code === "Space") {
+          // Montée Hitbox
+          gsap.to(cosHitbox.position, {
+            duration: 0.2,
+            ease: "Power2.easeOut",
+            y: 1.5,
+          });
 
-    // Descente Hitbox
-    gsap.to(cosHitbox.position, {
-      duration: 0.5,
-      ease: "Power1.easeInOut",
-      delay: 0.4,
-      y: 0.5,
-    });
+          // Descente Hitbox
+          gsap.to(cosHitbox.position, {
+            duration: 0.3,
+            ease: "Power1.easeInOut",
+            delay: 0.2,
+            y: 0.5,
+          });
+      }
+   }
+  });
   }
-});
-}
-
-/* 
-    UFO Hitbox
- */
-ufoHitbox = new THREE.Mesh(
-  new THREE.BoxGeometry(1, 1, 1),
-  new THREE.MeshBasicMaterial({ color: 0x0000ff, wireframe: true })
-);
-ufoHitbox.visible = false
-
-ufoHitbox.scale.x = 0.72;
-ufoHitbox.scale.y = 0.2;
-ufoHitbox.scale.z = 0.57;
-
-const debugUfo = gui.addFolder("Hitbox ufo");
-debugUfo.close()
-debugUfo.add(ufoHitbox.scale, "x").min(-5).max(5).step(0.01);
-debugUfo.add(ufoHitbox.scale, "y").min(-5).max(5).step(0.01);
-debugUfo.add(ufoHitbox, "visible")
-scene.add(ufoHitbox);
 
 /**
  * Lights
@@ -343,42 +376,50 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 /**
  * Animate
  */
-const clock = new THREE.Clock();
-let previousTime = 0;
 
+var clock = new THREE.Clock();
+var time = 0;
+var direction = new THREE.Vector3(-1, 0, 0);
+var speed = 7; // units a second - 2 seconds
+objectRoadStrip()
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    
 const tick = () => {
   const elapsedTime = clock.getElapsedTime();
-  const deltaTime = elapsedTime - previousTime;
-  previousTime = elapsedTime;
-  
-  // Score 
-  if(gameover == null){
-  const score = Math.round(elapsedTime * 20).toLocaleString("fr-FR", {
-    minimumIntegerDigits: 5,
-    useGrouping: false,
+  const deltaTime = elapsedTime - time;
+  time = elapsedTime;
+  if(!gameover){
+    // Score
+    let score = Math.round(elapsedTime * 20).toLocaleString("fr-FR", {
+      minimumIntegerDigits: 5,
+      useGrouping: false,
+    });
+    document.getElementById("score").innerText = score;
+
+    roadStripArray.forEach(function(ufo){
+      ufo.position.addScaledVector(direction, speed * deltaTime);
+      ufoHitbox.position.set(ufo.position.x, ufo.position.y, ufo.position.z) 
+      if (ufo.position.x <= -5) {
+          ufoHitbox.position.x = ufo.position.x
+          ufo.position.x = (Math.random() * 2 + 5);
+          if(speed <= 20)
+          {
+            speed += 0.09
+          }
+      }
   });
-  document.getElementById("score").innerText = score;
   }
 
-  /* function respawnUfo() {
-    nextUfoResetTime = clock.elapsedTime + ufoSpawnInterval;
-    ufo.position.x = 10;
-    ufo.position.y = 0.5;
-  } */
-
-  // Animation updater
-  if (mixer !== null) {
-    mixer.update(deltaTime * 2.5);
-  }
+    if(gameover) {
+      scene.remove(ufoHitbox)
+    }
 
 
-  if ((ufo !== null) & (ufoHitbox !== null) & (cosmonautMesh !== null) & (cosmonautAction !== null)) {
-    // Mouvement Ufo
-    ufo.position.x = 5 - elapsedTime * 3;
-    ufoHitbox.position.x = ufo.position.x;
-    ufoHitbox.position.y = ufo.position.y;
-    ufoHitbox.position.z = ufo.position.z;
-
+  if ((ufo !== null) & (ufoHitbox !== null) & (cosmonautMesh !== null) & (cosmonautAction !== null) & (action !== null) ) {
+    
+  
     // Collision
     const hitbox = new THREE.Box3().setFromObject(cosHitbox)
     const hitbox2 = new THREE.Box3().setFromObject(ufoHitbox)
@@ -386,56 +427,39 @@ const tick = () => {
     var collision = hitbox.intersectsBox(hitbox2)
     if(collision)
     {
-        cosmonautAction.stop();
-        cosmonautAction = cosmonautMixer.clipAction(cosmonaut1.animations[2]);
-        cosmonautAction.setLoop(THREE.LoopOnce)
-        cosmonautAction.clampWhenFinished = true
-        
-        cosmonautAction.play();
-        gameover = 1
+        gameover = true
+        replay.style.display = "flex"
+        gsap.to('#replay', {
+          duration: 2,
+          ease: "Power2.easeOut",
+          y: '117.5%',
+        });
     }
   }
+
+  if (mixer !== null) {
+    mixer.update(deltaTime);
+    
+     }
 
   if (cosmonautMixer !== null) {
     cosmonautMixer.update(deltaTime * 1.3);
+     if(gameover)
+     {
+      cosmonautAction.setLoop(THREE.LoopOnce)
+      cosmonautAction = cosmonautMixer.clipAction(cosmonaut1.animations[2]);
+      cosmonautAction.setLoop(THREE.LoopOnce)
+      cosmonautAction.clampWhenFinished = true
+      cosmonautAction.play();
+      
+     }
   }
 
-
-
-
-  /* function randomInt(min, max) {
-    return Math.floor(Math.random() * (max - min)) + min;
-  }
-
-  // Spawn new ufo.
-  if (clock.elapsedTime > ufoSpawnDelai) {
-    const interval = randomFloat(
-      ufoSpawnIntervalMin,
-      ufoSpawnIntervalMax
-    );
-
-    ufoSpawnDelai = clock.elapsedTime + interval;
-    
-    if(ufo !==null){
-    const numUfo = randomInt(3, 5);
-    for (let i = 0; i < numUfo; i++) {
-      const clone = ufo.clone();
-      clone.position.x = ufoSpawnX + i * 0.5;
-      clone.scale.set(0.15, 0.15, 0.15);
-
-      ufoGroup.add(clone);
-      }
-    }
-  } */
-
-  // Dispawn les UFO en dehors de l'écran
-  while (
-    ufoGroup.children.length > 0 &&
-    ufoGroup.children[0].position.x < - 5 
-  ) {
-    ufoGroup.remove(ufoGroup.children[0]);
-
-  }
+  // Animation lune qui tourne
+  
+  moon.rotation.x = elapsedTime / 10
+  moon.rotation.y = elapsedTime / 12
+  moon.rotation.z = elapsedTime / 2
 
   // Update controls
   controls.update();
@@ -448,3 +472,4 @@ const tick = () => {
 };
 
 tick();
+});
